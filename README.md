@@ -1,43 +1,28 @@
 # calcium_transient_ml_project
 
-Suggestions for a good README
+Name: 
+Identification of abnormal Ca2+ transient data from human induced pluripotent stem cell-derived cardiomyocytes by machine learning method
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-Name
+Description:
+Human-induced pluripotent stem cell-derived cardiomyocytes (hiPSC-CMs) provide an excellent platform for potential clinical and research applications. Ca2+ transient analysis is a crucial method to evaluate cardiomyocyte function and has the potential to serve as a high-throughput assay. However, manual identification of abnormal Ca2+ transients is a labor-intensive and time-consuming process. By adapting the analytic algorithm proposed by Juhola et al. for analyzing Ca2+ transients, we first automatically identified Ca2+ transient peaks and determined the abnormality of Ca2+ transient peaks based on their amplitudes, symmetry properties, and peak distances, and profiled 15 peak specific quantitative variables to characterize identified peaks. Second, we implemented the support vector machine (SVM) method to learn more information from human expert assessment of peak normality and profiled peak variables in training data, and then used the trained SVM model to identify abnormal peaks in the test data. By implementing the SVM method with leave-one-out cross validation (LOOCV), we obtained SVM assessment about the normality of Ca2+ transient peaks and signals by taking these containing at least one abnormal peak as an abnormal signal. Third, we profiled the following four signal specific variables including peak assessment by the analytical method and cell assessment by expert. Lastly, we implemented SVM method using training data with signal specific variables, normality assessment based on SVM assessment of peak normality, and normality assessment by experts, to train a machine learning model that can be used to assess test Ca2+ transient signals. We tested the accuracy of identifying abnormal Ca2+ transient signals by applying our machine learning method with LOOCV to 201 cells and an independent data with 92 cells. We obtained 88% accuracy, 96% sensitivity, and 79% specificity for the LOOCV data, and 87% accuracy, 89% sensitivity, and 83% specificity for the independent data. Further, we aim to develop an R package for analyzing Ca2+ transient signals that can implement our proposed analysis procedure to detect peaks, profile peak specific variables, generate SVM assessment for peak normality, profile signal specific variables, and then train an SVM model for assessing signal normality.  Our R package can be employed in Ca2+ analysis to allow throughput analysis for drug discovery and basic disease mechanism study purposes.
 
-Choose a self-explaining name for your project.
-Description
 
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 Badges
 
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
 Visuals
 
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-Installation
+Installation: 
+Simply running our script in RStudio should do. 
 
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 Usage
 
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 Support
 
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
 Roadmap
 
-If you have ideas for releases in the future, it is a good idea to list them in the README.
 Contributing
 
-State if you are open to contributions and what your requirements are for accepting them.
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-Authors and acknowledgment
+Authors and acknowledgment:
+J.M. performed the Ca2+ transient assay. R.L. performed expert peak and cell assessments. H.H. and J.Y. performed the analysis. R.L. wrote the methods section of the manuscript. H.H. wrote the manuscript in consultation with R.L., J.Y., and C.X. 
 
-Show your appreciation to those who have contributed to the project.
 License
-
-For open source projects, say how it is licensed.
-Project status
-
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
