@@ -1,0 +1,386 @@
+---
+title: "ML_training"
+author: "Hyun Hwang"
+date: "04/24/2020"
+output: pdf_notebook
+---
+
+
+``` {r}
+library(tidyverse)
+library(e1071)
+library(glmnet)
+library(MASS)
+library(caret)
+library(ggplot2)
+library(reshape2)
+library(readr)
+library(readxl)
+library(dplyr)
+options(stringsAsFactors = FALSE)
+
+source("~/Desktop/Files/1/R/ML_project/Rscripts/2020_ml_github/Rfuncs_HH.r")
+```
+
+
+## Load peak and cell information after analytical method
+```{r}
+## peak_status_expert: merging expert peak assessments of 60-frame and 160-frame data 
+peak_status_expert <- read_xlsx("~/Desktop/Files/1/R/ML_project/Data/20200229_Lemon/60_peak_expert_label.xlsx")
+peak_status_expert2 <- read_xlsx("~/Desktop/Files/1/R/ML_project/Data/20200229_Lemon/160_peak_expert_label.xlsx")
+peak_status_expert = rbind(peak_status_expert, peak_status_expert2)
+# View(peak_info_160)
+peak_status_expert <- peak_status_expert %>% mutate(cell_peak_id = paste(cell_id, peak_id, sep = ":"))
+head(peak_status_expert)
+
+
+## peak_info_df: calling peak-level variables
+peak_info_df <- read_csv("~/Desktop/Files/1/R/ML_project/Results/peak_info.csv", col_types = cols(X1 = col_skip()))
+#col_types = cols(X1 = col_skip())
+peak_info_df2 <- read_csv("~/Desktop/Files/1/R/ML_project/Results/peak_info_160.csv", col_types = cols(X1 = col_skip()))
+#col_types = cols(X1 = col_skip())
+peak_info_df = rbind(peak_info_df, peak_info_df2)
+table(peak_info_df$peak_status_analytical_algorithm) 
+#abnormal   normal 
+#     952      941 
+
+
+## Peak_Info_Expert: merging expert peak assessment with peak-level variables
+Peak_Info_Expert <- merge(peak_status_expert, peak_info_df, 
+                           #by = c("cell_id", "left", "max", "right"),
+                           by.peak_info_df = c("cell_id", "peak_id", "left", "max", "right", "peak_status_analytical_algorithm"),
+                           by.peak_status_expert = ("peak_status_expert"),
+                           sort = FALSE)
+dim(Peak_Info_Expert) # 1893 X 23
+Peak_Info_Expert$peak_status_expert = factor(Peak_Info_Expert$peak_status_expert)
+Peak_Info_Expert$peak_status_analytical_algorithm = factor(Peak_Info_Expert$peak_status_analytical_algorithm)
+dim(Peak_Info_Expert) # 1893 X 23
+confusionMatrix(factor(Peak_Info_Expert$peak_status_analytical_algorithm), 
+                factor(Peak_Info_Expert$peak_status_expert))
+#          Reference
+#Prediction abnormal normal
+#  abnormal      915     37
+#  normal         89    852
+#
+#               Accuracy : 0.9334          
+#            Sensitivity : 0.9114          
+#            Specificity : 0.9584 
+
+
+## cell_status_df: cell status by analytical method
+# Remove cell B5_8 as an outlier (no peak); 
+# Peak info identified by analytical peak classifier
+cell_status_df <- read_csv("~/Desktop/Files/1/R/ML_project/Results/cell_status_df.csv", col_types = cols(X1 = col_skip())) %>% dplyr::filter(cell_id != "B5_8")
+cell_status_160 <- read_csv("~/Desktop/Files/1/R/ML_project/Results/cell_status_df_160.csv", col_types = cols(X1 = col_skip()))
+cell_status_df = rbind(cell_status_df, cell_status_160)
+# cell_status_analytical_algorithm is the cell status based on analytical peak status
+
+
+## Cell_Info: expert cell assessment
+Cell_Info <- read_excel("~/Desktop/Files/1/R/ML_project/Data/20200229_Lemon/60_cell_expert_label.xlsx") 
+Cell_Info2 <- read_excel("~/Desktop/Files/1/R/ML_project/Data/20200229_Lemon/160_cell_expert_label.xlsx")
+Cell_Info = rbind(Cell_Info, Cell_Info2) 
+colnames(Cell_Info)[1] <- "cell_id"
+colnames(Cell_Info)[2] <- "cell_status_expert"
+
+
+## cell_info_expert: merging analytical method cell status with expert cell assessment
+cell_info_expert <- merge(cell_status_df, Cell_Info, by = "cell_id", sort = FALSE)
+cell_info_expert %>% dplyr::select(c(cell_status_analytical_algorithm, cell_status_expert)) %>% table
+#                                cell_status_expert
+#cell_status_analytical_algorithm abnormal normal
+#                        abnormal      104     14
+#                        normal         11     71
+
+confusionMatrix(factor(cell_info_expert$cell_status_analytical_algorithm), 
+                factor(cell_info_expert$cell_status_expert))
+#          Reference
+#Prediction abnormal normal
+#  abnormal      104     14
+#  normal         11     71
+#                                         
+#               Accuracy : 0.875          
+#            Sensitivity : 0.9043         
+#            Specificity : 0.8353         
+```
+
+
+## Peak status SVM-LOOCV
+```{r}
+## Seperate normal and abnormal peak data sets
+TrainData_abnormal <- Peak_Info_Expert %>% dplyr::filter(peak_status_expert == "abnormal") 
+TrainData_normal <- Peak_Info_Expert %>% dplyr::filter(peak_status_expert == "normal")
+
+TrainData <- rbind(TrainData_abnormal, TrainData_normal)
+TrainData_aug <- rbind(sample_n(TrainData_abnormal, size = nrow(TrainData_normal), replace = TRUE) , TrainData_normal)
+
+
+## var_list: peak-level variables
+var_list = c("A_l", "A_r", "A_d", 
+             "D_l", "D_r", "Dy_max", "Dy_min", "D2y_max", "D2y_min", 
+             "R", "delta", "delta_l2Dymax", "delta_m2Dymin", "Peak_distance", "Peak_distance_median")
+
+
+## Standardize peak variables
+set.seed(2019)
+TrainData[, eval(var_list)] <- TrainData %>% dplyr::select(eval(var_list)) %>% scale()
+TrainData_aug[, eval(var_list)] <- TrainData_aug %>% dplyr::select(eval(var_list)) %>% scale()
+is.factor(TrainData$peak_status_expert)
+is.factor(TrainData_aug$peak_status_expert)
+
+
+## Analytical method accuracy
+confusionMatrix(TrainData$peak_status_analytical_algorithm, TrainData$peak_status_expert) 
+#          Reference
+#Prediction abnormal normal
+#  abnormal      915     37
+#  normal         89    852
+#                                          
+#               Accuracy : 0.9334          
+#            Sensitivity : 0.9114          
+#            Specificity : 0.9584          
+
+
+## SVM with Leave-one-out test for peak identification
+nrow(TrainData) #1893
+peak_status_svm = rep(NA, nrow(TrainData))
+
+
+for(i in 1:nrow(TrainData)){
+  cell_peak_id_i = TrainData$cell_peak_id[i]
+  TrainTemp <- TrainData_aug %>%  dplyr::filter(cell_peak_id != cell_peak_id_i)
+  svm_peak = svm(peak_status_expert ~ A_l + A_r + A_d + 
+                  D_l + D_r + Dy_max + Dy_min + D2y_max + D2y_min + 
+                  R + delta + delta_l2Dymax + delta_m2Dymin + Peak_distance + Peak_distance_median, 
+               data = TrainTemp, kernel = "radial", scale = TRUE)
+  TestTemp <- TrainData %>%  dplyr::filter(cell_peak_id == cell_peak_id_i) 
+  peak_status_svm[i] = as.vector(predict(svm_peak, TestTemp))
+}
+
+## SVM-LOOCV accuracy
+confusionMatrix(factor(peak_status_svm), TrainData$peak_status_expert)
+#          Reference
+#Prediction abnormal normal
+#  abnormal      914     48
+#  normal         90    841
+#                                          
+#               Accuracy : 0.9271
+#            Sensitivity : 0.9104          
+#            Specificity : 0.9460          
+
+
+## saving peak prediction as csv file
+Peak_pred_results <- TrainData[order(TrainData$cell_id, TrainData$peak_id), ] 
+write.csv(Peak_pred_results, file = "~/Desktop/Files/1/R/ML_project/Results/Peak_pred_3_5_2020.csv", row.names = FALSE)
+
+```
+
+
+### Cell status SVM-LOOCV
+```{r}
+## normal and abnormal cell by expert
+normal_cell <- cell_info_expert %>% dplyr::filter(cell_status_expert == "normal") %>% dplyr::select(cell_id) %>% unlist()
+abnormal_cell <- cell_info_expert %>% dplyr::filter(cell_status_expert != "normal") %>% dplyr::select(cell_id) %>% unlist()
+
+## Peak prediction based on AND /  OR of ML/AnalyticalMethod
+peak_status_analytical_algorithm_or_svm <- rep("normal", nrow(TrainData))
+peak_status_analytical_algorithm_or_svm[peak_status_svm == "abnormal" |  TrainData$peak_status_analytical_algorithm == "abnormal"] = "abnormal"
+
+# Add predictions to Train Data
+TrainData <- TrainData %>% mutate(peak_status_svm = peak_status_svm, 
+                                  peak_status_analytical_algorithm_or_svm = factor(peak_status_analytical_algorithm_or_svm))
+
+
+confusionMatrix(TrainData$peak_status_analytical_algorithm_or_svm, TrainData$peak_status_expert) 
+#          Reference
+#Prediction abnormal normal
+#  abnormal      962     82
+#  normal         42    807
+#                                          
+#               Accuracy : 0.9345          
+#            Sensitivity : 0.9582          
+#            Specificity : 0.9078 
+
+
+## Based on MLpredPeak or PeakIdentify
+pred_abnormal_cell <- TrainData %>% dplyr::filter(peak_status_analytical_algorithm_or_svm == "abnormal") %>% dplyr::select(cell_id) %>% unique() %>% unlist()
+sum(pred_abnormal_cell %in% abnormal_cell) / length(abnormal_cell)
+# 0.9304348
+pred_normal_cell <- cell_info_expert %>% dplyr::filter(! cell_id %in% pred_abnormal_cell)  %>% dplyr::select(cell_id) %>% unlist()
+sum(pred_normal_cell %in% normal_cell) / length(normal_cell)
+# 0.8352941
+Cell_pred_or <- data.frame(cell_id = c(pred_abnormal_cell, pred_normal_cell), 
+                           peak_status_analytical_algorithm_or_svm = c(rep("abnormal", length(pred_abnormal_cell)), 
+                                                   rep("normal", length(pred_normal_cell))))
+
+
+## Add Cell prediction to Cell_Info2 dataset
+Cell_Info2 = merge(Cell_pred_or, cell_info_expert, by = "cell_id", sort = FALSE)
+
+Cell_Info2 %>% dplyr::select(c(peak_status_analytical_algorithm_or_svm, cell_status_expert)) %>% table
+Cell_Info2 <- Cell_Info2 %>% dplyr::distinct(Cell_ID, .keep_all = TRUE)
+
+save.image()
+
+
+## Cell-level variables extracted from scaled peak-level variables
+Cell_var <- TrainData %>% group_by(cell_id) %>% summarise(n_peak = n(), 
+                                                          n_abnormal = sum(peak_status_analytical_algorithm_or_svm == "abnormal"), 
+                                                          var_A = var( (A_l + A_r)/2 ), 
+                                                          var_delta = var(delta[-1]), 
+                                                          var_R = var(R))
+colnames(Cell_var)[1] = "cell_id"
+
+
+## Cell_dt
+colnames(Cell_Info2)[1] = "cell_id"
+Cell_Info2 %>% distinct(cell_id, .keep_all = TRUE)
+Cell_dt <- Cell_Info2 %>% dplyr::select(c(cell_id, peak_status_analytical_algorithm_or_svm, 
+                                          cell_status_expert)) %>%  merge(Cell_var, by = "cell_id", sort = FALSE)
+Cell_dt$cell_status_expert <- factor(Cell_dt$cell_status_expert)
+Cell_dt$peak_status_analytical_algorithm_or_svm <- factor(Cell_dt$peak_status_analytical_algorithm_or_svm)
+table(Cell_dt$cell_status_expert) 
+# abnormal normal 
+# 114   84 
+
+
+## Classify with cell-level variables
+cell_id_vec <- Cell_dt$cell_id %>% unlist()
+n_cell <- length(cell_id_vec)
+cell_status_svm <- rep(NA, n_cell)
+for(i in 1:n_cell){
+  TrainTemp1 <- Cell_dt %>% dplyr::filter(cell_id != cell_id_vec[i])
+  svm_cell = svm(cell_status_expert ~ peak_status_analytical_algorithm_or_svm + n_peak + n_abnormal + var_A + var_delta + var_R, 
+                 data = TrainTemp1, 
+                 kernel = "radial", 
+                 scale = TRUE)
+  
+  TestTemp <- Cell_dt %>% dplyr::filter(cell_id == cell_id_vec[i])
+  if(complete.cases(TestTemp)){
+    cell_status_svm[i] = as.vector(predict(svm_cell, TestTemp))
+  }else{
+    cell_status_svm[i] = as.vector(TestTemp$peak_status_analytical_algorithm_or_svm)
+  }
+}
+
+
+### Add prediction into Cell_dt
+Cell_dt <- Cell_dt %>% mutate(cell_status_svm = factor(cell_status_svm))
+
+confusionMatrix(Cell_dt$cell_status_svm, Cell_dt$cell_status_expert)
+#          Reference
+#Prediction abnormal normal
+#      abnormal  108   14
+#      normal   6   70
+#                                          
+#               Accuracy : 0.899           
+#            Sensitivity : 0.9474          
+#            Specificity : 0.8333          
+confusionMatrix(Cell_dt$peak_status_analytical_algorithm_or_svm, Cell_dt$cell_status_expert)
+# new data from 4/24
+#          Reference
+#Prediction abnormal normal
+#      abnormal  107   14
+#      normal   7   70
+#                                          
+#               Accuracy : 0.8939          
+#            Sensitivity : 0.9386          
+#            Specificity : 0.8333          
+
+
+write.csv(Cell_dt[order(Cell_dt$cell_id), ], file = "~/Desktop/Files/1/R/ML_project/Results/Cell_pred_3_5_2020.csv", row.names = FALSE)
+
+save.image()
+
+
+write.csv(TrainData, file = "~/Desktop/Files/1/R/ML_project/Results/TrainData.csv")
+write.csv(Cell_dt, file = "~/Desktop/Files/1/R/ML_project/Results/Cell_dt.csv")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Plot cell intensities with peak_status_analytical_algorithm_or_svm and cell_2status_expert
+```{r}
+## Load data
+fluo4_data_60 <- read_csv("~/Desktop/Files/1/R/ML_project/Data/fluo4_transformed_July2019.csv")
+# rownames(fluo4_data) = fluo4_data$Cell_ID
+fluo4_data_160 <- read_excel("~/Desktop/Files/1/R/ML_project/Data/191003_fluo4.xlsx")
+
+data_with_status_60 = merge(Cell_dt[, 
+                c("Cell_ID", "cell_status_svm", 
+                  "cell_status_expert", "cell_2status_expert")], 
+                fluo4_data_60, by = c("cell_id"))
+
+data_with_status_160 = merge(Cell_dt[, 
+                c("Cell_ID", "cell_status_svm", 
+                  "cell_status_expert", "cell_2status_expert")], 
+                fluo4_data_160, by = c("Cell_ID"))
+
+```
+
+
+```{r}
+pdf("~/Desktop/Files/1/R/ML_project/Results/Signals_with_PredExpStatus_60.pdf")
+Lane_list = sort(unique(data_with_status_60$Lane))
+for(lane in Lane_list){
+  temp = data_with_status_60[data_with_status_60$Lane == lane, ]
+  plot_data = temp %>% dplyr::select(-c(Status, Lane, Cell)) %>% melt()
+  plot_data$status = factor(paste(plot_data$cell_2status_expert, 
+                                  plot_data$cell_status_svm, sep = ":"), 
+                            levels = c("abnormal:abnormal", "normal:normal", "abnormal:normal", "normal:abnormal"))
+  p = ggplot(plot_data, aes(x = variable, y = value, 
+                            group = Cell_ID, 
+                            color = status)) + 
+    ylab("Intensity") +
+   geom_line() + facet_wrap(~Cell_ID, scales = "free_y") + 
+    guides(color = guide_legend(title="Expert:Pred")) +
+   scale_x_discrete(name = "Frame", 
+                   breaks = c("Frame1", "Frame20", "Frame40", "Frame60"), 
+                   labels = c(1, 20, 40, 60))
+  print(p)
+}
+dev.off()
+```
+
+
+```{r}
+pdf("~/Desktop/Files/1/R/ML_project/Results/Signals_with_PredExpStatus_160.pdf")
+Lane_list = sort(unique(data_with_status_160$Cell))
+for(lane in Lane_list){
+  temp = data_with_status_160[data_with_status_160$Cell == lane, ]
+  plot_data = temp %>% dplyr::select(-c(Status, Cell)) %>% melt()
+  plot_data$status = factor(paste(plot_data$cell_2status_expert, 
+                                  plot_data$cell_status_svm, sep = ":"), 
+                            levels = c("abnormal:abnormal", "normal:normal", "abnormal:normal", "normal:abnormal"))
+  p = ggplot(plot_data, aes(x = variable, y = value, 
+                            group = Cell_ID, 
+                            color = status)) + 
+    ylab("Intensity") +
+   geom_line() + facet_wrap(~Cell_ID, scales = "free_y") + 
+    guides(color = guide_legend(title="Expert:Pred")) +
+   scale_x_discrete(name = "Frame", 
+                   breaks = c("Frame1", "Frame80", "Frame160"), 
+                   labels = c(1, 80, 60))
+  print(p)
+}
+dev.off()
+```
+
