@@ -1,4 +1,4 @@
-#' Add phase to peak_df
+#' Add phase
 #'
 #' @export
 #' @keywords

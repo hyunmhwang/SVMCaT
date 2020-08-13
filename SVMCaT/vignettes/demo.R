@@ -1,14 +1,4 @@
----
-title: "demo"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{demo}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
----
-
-### Load R function file
-```{r}
+## -----------------------------------------------------------------------------
 #library(SVMCaT)
 source("/Users/hyunhwang/Desktop/Files/1/R/SVMCaT/R/Rfuncs_HH.R")
 
@@ -29,16 +19,12 @@ var_list = c("A_l", "A_r", "A_d", "D_l", "D_r",
 
 # 4 cell-level variables
 cell_var_list = c("n_peak", "n_abnormal", "prop_abnormal", "var_A", "var_delta", "var_R")
-```
 
-### Load sorted calcium transient data
-```{r}
+## -----------------------------------------------------------------------------
 ## Load data
 fluo4_data_test <- read.csv("/Users/hyunhwang/Desktop/Files/1/R/SVMCaT/112119_ca0_1.csv")
-```
 
-### Peak detection, single-peak signal removal, and phase addition
-```{r}
+## -----------------------------------------------------------------------------
 # create peak_df
 peak_df = create_peak_df(fluo4_data_test)
 
@@ -51,23 +37,17 @@ fluo4_data_test = rid_single_peak_cell(fluo4_data_test, single_peak_cells)
 
 # add phase to peak_df
 peak_df = add_phase(peak_df)
-```
 
-### Identify abnormal peaks by analytic method
-```{r}
+## -----------------------------------------------------------------------------
 peak_df = analyze_peak_abnormality(peak_df)
-```
 
-### Identify normal/abnormal cells based on identified abnormal peaks
-```{r}
+## -----------------------------------------------------------------------------
 data_with_status = analyze_cell_abnormality(fluo4_data_test)
 
 # add data_with_status to fluo4_data_test
 fluo4_data_test = create_test_data_with_status(fluo4_data_test, data_with_status)
-```
 
-### Write results into csv files
-```{r}
+## -----------------------------------------------------------------------------
 # update peak status
 peak_df = update_peak_status(peak_df)
 
@@ -76,10 +56,8 @@ peak_df = peak_data_svm(svm_fit_peak, peak_df)
 
 # cell status prediction
 fluo4_data_test = cell_status_prediction(svm_fit_cell, cell_var_list, peak_df)
-```
 
-### Plot calcium transient siganls with detected peaks 
-```{r}
+## -----------------------------------------------------------------------------
 n_cells = fluo4_data_test$cell_id # number of cells in calcium transient data
 frame = 1:60 # number of frames per transient signal data
 
@@ -107,10 +85,8 @@ for(i in n_cells){
   print(p)
 }
 dev.off()
-```
 
-### Plot calcium transient signals with assessed cell_status via SVM
-```{r}
+## -----------------------------------------------------------------------------
 pdf("./Signals_with_PredStatus_test.pdf")
 lane_list = sort(unique(fluo4_data_test$Well))
 for(lane in lane_list){
@@ -130,4 +106,4 @@ for(lane in lane_list){
   print(p)
 }
 dev.off()
-```
+
