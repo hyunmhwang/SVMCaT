@@ -1,0 +1,23 @@
+Package: SVMCaT
+Type: Package
+Title: SVM-based Calcium Transient Analysis Tool
+Version: 0.1.0
+Author: Hyun Hwang <hyun.hwang2@emory.edu>, Jingjing Yang <jingjing.yang@emory.edu>
+Maintainer: Hyun Hwang <hyun.hwang2@emory.edu>, Jingjing Yang <jingjing.yang@emory.edu>
+Description: Provides functions for high troughput machine learning algorithm-based assessment of calcium transient signal normality.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1
+Depends: R (>= 3.6.1)
+Imports: 
+    dplyr (>= 1.0.0), 
+    magrittr (>= 1.5), 
+    e1071 (>= 1.7.3), 
+    reshape2 (>= 1.4.4), 
+    ggplot2 (>= 3.3.2)
+Suggests: 
+    knitr (>= 1.29),
+    rmarkdown (>= 2.3),
+    testthat (>= 2.3.2)
+VignetteBuilder: knitr
