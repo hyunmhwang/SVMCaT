@@ -10,3 +10,6 @@ This R library is developed for analyzing Ca2+ signals with functions for
 - Trained peak-level SVM model `svm_fit_peak.rds` and cell-level SVM model `svm_fit_cell.rds` are provided with this package
 - Test Ca2+ signals are provided `test.csv` with this package
 - See `/vignettes/demo.Rmd` for a script of demostration for using this tool
+
+## License
+[MIT](https://choosealicense.com/licenses/mit/)
