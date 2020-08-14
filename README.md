@@ -7,7 +7,6 @@ This R library is developed for analyzing Ca2+ signals with functions for
 - Training cell-level SVM models based on cell-level variables to differentiate normal and abnormal Ca2+ signals.
 
 ## Example Data
-- Trained peak-level SVM model (XXX) and cell-level SVM model (XX) are provided with this package
-- Test Ca2+ signals are provided (XXX) with this package
-
-## See XXX for a demostration of using this tool
+- Trained peak-level SVM model `svm_fit_peak.rds` and cell-level SVM model `svm_fit_cell.rds` are provided with this package
+- Test Ca2+ signals are provided `test.csv` with this package
+- See `/vignettes/demo.Rmd` for a script of demostration for using this tool
